@@ -21,7 +21,7 @@ import peer.client.PeerClientIF;
 public interface PeerServerIF  extends Remote{
 	boolean sendFile(PeerClientIF peerClient, String filename) throws RemoteException;
 	void query(String msgID, String cIP, String cPortNo, long timeToLive, String filename, String cPeerName) throws RemoteException;
-	void queryhit(String msgID, long timeToLive, String filename, String hitPeerIP, String hitPeerPN, String hitPeerName) throws RemoteException;
+	void queryhit(String msgID, long timeToLive, String filename, String hitPeerIP, String hitPeerPN, String hitPeerName, long l, boolean originmessage) throws RemoteException;
 	String getPeerDir() throws RemoteException;
 	//String[] getFiles() throws RemoteException;
 	void setClientInstance(PeerClientIF peerClient) throws RemoteException;
@@ -43,6 +43,7 @@ public interface PeerServerIF  extends Remote{
 	void setPullprotocol(boolean pullprotocol) throws RemoteException;
 	void setPushprotocol(boolean pullprotocol) throws RemoteException;
 	void setTTR(int ttr) throws RemoteException;
+	 void update(String filename) throws RemoteException;
 	int getTTR() throws RemoteException;
 	//end
 	

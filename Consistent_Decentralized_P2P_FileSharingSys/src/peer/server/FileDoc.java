@@ -1,8 +1,9 @@
 package peer.server;
 
+import java.io.Serializable;
 import java.rmi.RemoteException;
 
-public class FileDoc {
+public class FileDoc implements Serializable{
 	private PeerServerIF pServer;
 	protected String filename;
 	private String originServerID;

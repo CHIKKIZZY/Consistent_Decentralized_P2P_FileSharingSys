@@ -152,7 +152,6 @@ public class PeerClient extends UnicastRemoteObject implements PeerClientIF, Run
 			msgIDsuffix++;
 			peerServer.query(peer_ip+"-"+port_no+"-"+msgIDsuffix , peer_ip, port_no, TIME_TO_LIVE, filename, peerName);
 			Thread.sleep(QUERY_WAIT_TIME);	//pause and wait for response to be propagated back [throws InterruptedException]
-			
 			if (!msgHits.isEmpty()) {
 				return true;
 			} else {
@@ -237,13 +236,14 @@ public class PeerClient extends UnicastRemoteObject implements PeerClientIF, Run
 	public void run() {
 		setup();
 		//read messages from command line
-		String command, task, filename;
+		String command, task, filename = null;
 		long start, endtime;
 		System.out.println("Enter The Option and filename/Peer name:\n====================================\n"
 				+ "1. Download File from Peer Server\n"
 				+ "2. Calculate Average Response time\n"
 				+ "3. Edit a file\n"
-				+ "4. Exit");	
+				+ "4. Update the file(Please enter the file name)\n"
+				+ "5. Exit");	
 		while (true) {	//continue reading commands
 			Scanner cmdline = new Scanner(System.in);
 			command = cmdline.nextLine();
@@ -371,7 +371,22 @@ public class PeerClient extends UnicastRemoteObject implements PeerClientIF, Run
 					e.printStackTrace();
 				}
 			} else if (command.equals("4")) {
-				System.exit(0);	//close program and exit
+				try {
+					for(int i=0;i<200;i++){
+					peerServer.update(filename);
+					try {
+						Thread.sleep(1);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}}
+				} catch (RemoteException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}	//close program and exit
+			}
+			else if (command.equals("5")) {
+				System.exit(0);
 			}else 
 				System.out.println("Usage: <task #> <filename or Peer_name>");
 		}

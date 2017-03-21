@@ -8,6 +8,8 @@ package peer.server;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -42,11 +44,12 @@ public class PeerServer extends UnicastRemoteObject implements PeerServerIF {
 	private int ttr;
 	private String[] recentlyAddedFile;	//holds metadata for most recent file
 	private int staleFileAction;
+	private int total=0;
+	private int invalid=0;
 	//end	
 	private final int QUEUE_MAX_SIZE = 10;
 	private String[][] queuedRecMsgs = new String[(int) QUEUE_MAX_SIZE][3];	//keeps track of all received messages's meta data
 	private int queuetracker = 0;
-	
 	protected PeerServer() throws RemoteException {
 		super();
 	}
@@ -351,7 +354,22 @@ public class PeerServer extends UnicastRemoteObject implements PeerServerIF {
 		 }
 		 return true;
 	}
-	
+	public void update(String filename)
+	{
+		File f = new File(peerRootDirectoryPath+"\\owned");
+		String filepath = "owned\\"+filename;
+		System.out.println(filepath);
+	    FileWriter fw;
+		try {
+			fw = new FileWriter(filepath,true);
+			fw.write("\n hello \n");//appends the string to the file
+		    fw.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} //the true will append the new data
+	    
+	}
 	/**
 	 * task: spuns two threads. one to search itself for the file and the other to
 	 * 		subsequently query all neighboring peers
@@ -366,7 +384,7 @@ public class PeerServer extends UnicastRemoteObject implements PeerServerIF {
 	public synchronized void query(String msgID, String cIP, String cPN, long timeToLive, String file, String cPName) throws RemoteException {
 		System.out.println("   Peer '"+cPName+"' has requested a file: "+file);
 		boolean fileNotFound = true;
-		
+		boolean originmessage = false;
 		//record received message in logical priority queue
 		//override stale/oldest elements if logical queue is full
 		queuetracker = queuetracker%QUEUE_MAX_SIZE;
@@ -377,12 +395,22 @@ public class PeerServer extends UnicastRemoteObject implements PeerServerIF {
 		
 		if(getFileList().contains(file)) {
 			fileNotFound = false;
+			int index = 0;
 			System.out.println("   File found in "+peerClient.getName());
 			PeerServerIF msgSender;
 			try {
 				//assembling unique url for each neighboring peer and searching for that unique url in register
 				msgSender = (PeerServerIF) Naming.lookup("rmi://"+cIP+":"+cPN+"/peerserver");
-				msgSender.queryhit(msgID, timeToLive+1, file, peerIP, portNo, peerClient.getName());
+				for(int k=0;k<fileData.size();k++)
+				{
+					if(fileData.get(k).getFilename().equals(file)) 
+						index = k;
+				}
+				if(fileData.get(index).getOriginServerID().equals(peerIP+":"+portNo))	
+					originmessage = true;
+				//total=0;
+				//for(int i=0;i<200;i++)
+				msgSender.queryhit(msgID, timeToLive+1, file, peerIP, portNo, peerClient.getName(),fileData.get(index).getLastModified(),originmessage);
 			} catch (MalformedURLException | NotBoundException e) {
 				System.out.println("MalformedURLException or NotBoundException in PeerServer's query method");
 				e.printStackTrace();
@@ -407,9 +435,28 @@ public class PeerServer extends UnicastRemoteObject implements PeerServerIF {
 		if(fileNotFound)
 			System.out.println("   File not found in "+peerClient.getName());
 	}
-	public void queryhit(String msgID, long timeToLive, String filename, String hitPeerIP, String hitPeerPN, String hitPeerName) throws RemoteException {
+	public void queryhit(String msgID, long timeToLive, String filename, String hitPeerIP, String hitPeerPN, String hitPeerName, long lastmodified, boolean originserver) throws RemoteException {
+		//int total = 0, invalid = 0;
 		if(timeToLive == PeerClient.getTTL()){
 			peerClient.addMsgHits(msgID, hitPeerIP, hitPeerPN, hitPeerName);
+			total++;
+			int index = 0;
+			/*if(originserver)
+			{*/
+				PeerServerIF msgInvalid;
+				try {
+					msgInvalid = (PeerServerIF) Naming.lookup("rmi://"+hitPeerIP+":"+hitPeerPN+"/peerserver");
+					for(int k=0;k<fileData.size();k++)
+					{
+						if(msgInvalid.getFileData().get(k).getFilename().equals(filename)) 
+							index = k;
+					}
+					if(lastmodified < msgInvalid.getFileData().get(index).getLastModified()) invalid++;
+				} catch (MalformedURLException | NotBoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			System.out.println("percentage of invalid query results" + (invalid/total));
 		} else {
 			for(int r=0; r<queuedRecMsgs.length; r++) {
 				if (queuedRecMsgs[r][0] != null) {
@@ -417,7 +464,7 @@ public class PeerServer extends UnicastRemoteObject implements PeerServerIF {
 						PeerServerIF msgUpStreamSender;
 						try {
 							msgUpStreamSender = (PeerServerIF) Naming.lookup("rmi://"+queuedRecMsgs[r][1]+":"+queuedRecMsgs[r][2]+"/peerserver");
-							msgUpStreamSender.queryhit(msgID, timeToLive+1, filename, hitPeerIP, hitPeerPN, hitPeerName);
+							msgUpStreamSender.queryhit(msgID, timeToLive+1, filename, hitPeerIP, hitPeerPN, hitPeerName,lastmodified, originserver);
 						} catch (MalformedURLException | RemoteException | NotBoundException e) {
 							e.printStackTrace();
 						}
